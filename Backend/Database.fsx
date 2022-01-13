@@ -81,3 +81,16 @@ module Db =
         // let GetAll() = querySeqAsync<Types.User> { script "SELECT * FROM Users" } 
 
    
+    module Tweet = 
+
+        let Insert username tweet = querySingleAsync<int> {
+            script "INSERT INTO Tweets (username, tweet) VALUES (@username, @tweet)"
+            parameters (dict ["username", box username; "tweet", box tweet])
+        }
+
+        let GetLatestTweets() username = querySeqAsync<Types.Tweet> {
+            script "SELECT * FROM Tweets WHERE (username=@username) ORDER BY id DESC LIMIT 10"
+            parameters (dict ["username", box username])
+        }
+        
+        let GetQuery() = querySeqAsync<Types.Tweet> { script ("SELECT * FROM Tweets")} 
