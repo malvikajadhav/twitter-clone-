@@ -78,6 +78,36 @@ module Db =
         }
 
 
-        // let GetAll() = querySeqAsync<Types.User> { script "SELECT * FROM Users" } 
+        let GetAll() = querySeqAsync<Types.User> { script "SELECT * FROM Users" } 
 
    
+    module Tweet = 
+
+        let Insert username tweet = querySingleAsync<int> {
+            script "INSERT INTO Tweets (username, tweet) VALUES (@username, @tweet)"
+            parameters (dict ["username", box username; "tweet", box tweet])
+        }
+
+        let GetLatestTweets() username = querySeqAsync<Types.Tweet> {
+            script "SELECT * FROM Tweets WHERE (username=@username) ORDER BY id DESC LIMIT 10"
+            parameters (dict ["username", box username])
+        }
+        
+        let GetQuery() = querySeqAsync<Types.Tweet> { script ("SELECT * FROM Tweets")} 
+
+       module Follow = 
+
+        let Insert username following = querySingleAsync<int> {
+            script "INSERT INTO Follows (username, following) VALUES (@username, @following)"
+            parameters (dict ["username", box username; "following", box following])
+        }
+
+        let GetFollowing username following = querySingleAsync<Types.Follow> {
+            script "SELECT * FROM Follows WHERE username=@username AND following = @following LIMIT 1"
+            parameters (dict ["username", box username; "following", box following])
+        }
+
+        let GetFollowers() following = querySeqAsync<Types.Follow> { 
+            script "SELECT * FROM Follows WHERE following=@following"
+            parameters (dict ["following", box following]) 
+        } 
