@@ -89,6 +89,65 @@ $(".tweet-btn").click(function(e){
   $("#the-textarea").val('');
 });
 
+$(".follow-btn").click(function(e){
+  e.preventDefault();
+  var following = $("input#follow").val();
+  var obj = new Object();
+  obj.username = username;
+  obj.following = following;
+  const response = JSON.stringify(obj);
+  $.ajax({
+    type: "POST",
+    url: location.href + 'follow',
+    data: response,
+    dataType: 'json',
+    contentType: 'application/json;charset=UTF-8'
+  }).done(function(data) {
+    $('.follow-results').empty();
+    if (data.message == "success") {
+      let rep = "<p class='success'>" + data.value + "</p>"
+      $('.follow-results').prepend(rep);
+    }
+    else {
+      console.log(data);
+      let rep = "<p class='fail'>" + data.value + "</p>"
+      $('.follow-results').prepend(rep);
+    }
+  });
+  $("input#follow").val('');
+});
+
+$(".query-btn").click(function(e){
+  e.preventDefault();
+  var query = $("input#query").val();
+  var obj = new Object();
+  obj.user = username;
+  obj.query = query;
+  const response = JSON.stringify(obj);
+  $.ajax({
+    type: "POST",
+    url: location.href + 'query',
+    data: response,
+    dataType: 'json',
+    contentType: 'application/json;charset=UTF-8'
+  }).done(function(data) {
+    $('.query-results').empty();
+    if (data.message == "success") {
+      for (var i = 0, l = data.result.length; i<l; i++) {
+        let rep = "<p class='query-success'>" + data.result[i].username + " tweeted '" + data.result[i].tweet + "'</p>"
+        $('.query-results').prepend(rep);
+      }
+    }
+    else {
+      console.log(data);
+      let rep = "<p class='fail'> Nothing Found!</p>"
+      $('.query-results').prepend(rep);
+    }
+  });
+  $("input#query").val('');
+});
+
+
 var wsUri = "ws://" + location.host + "/livefeed";
 var feeder;
 window.addEventListener("load", init, false);
