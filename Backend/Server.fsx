@@ -185,9 +185,79 @@ let loginUser (user : UserRecord) =
     | None -> 
         {message="fail"; value="User does not exixts!"}
 
+
+let userTweet (tweet : TweetRecord) =
+    let value = tweet.tweet
+    match Db.User.Get tweet.username |> Async.RunSynchronously with
+    | Some(user) ->
+        Db.Tweet.Insert user.username value |> Async.RunSynchronously |> ignore
+        let followers = Db.Follow.GetFollowers() tweet.username |> Async.RunSynchronously |> Array.ofSeq
+        liveFeedRef <! Tweet({task="tweeted"; username=tweet.username; value=tweet.tweet})
+        for i in [0 .. followers.Length-1] do
+            liveFeedRef <! FollowTweet({user=tweet.username; follower=followers.[i].username; tweet=tweet.tweet})
+        {message="success"; value="Tweet successfully registered."}
+    | None ->
+        {message="fail"; value="Tweet did not register!"}
+
+
+let followUser (follow : FollowRecord) = 
+    let user = follow.username
+    let following = follow.following
+    match Db.User.Get following |> Async.RunSynchronously with
+    | Some(u) ->
+        match Db.Follow.GetFollowing user following |> Async.RunSynchronously with
+        | Some(f) ->
+            let rep =  "You are already following " + following
+            {message="fail"; value=rep}
+        | None ->
+            Db.Follow.Insert user following |> Async.RunSynchronously |> ignore
+            let rep = "You are now following " + following 
+            liveFeedRef <! Follow(user,following)
+            {message="success"; value=rep}
+    | None ->
+        let rep = following + " does not exists."
+        {message="fail"; value=rep}
+
+let queryDb (query : QueryRecord) = 
+    let mutable matchedTweets = [||]
+    let tweets = Db.Tweet.GetQuery() |> Async.RunSynchronously |> Array.ofSeq
+    let tweetL = tweets.Length
+    for i in [0 .. tweetL-1] do
+        let tweet = tweets.[i].tweet
+        match tweet.Contains(query.query) with
+        | true -> 
+            matchedTweets <- Array.append matchedTweets [|tweets.[i]|]
+        | false -> ()
+    if matchedTweets.Length = 0 then
+        {message="fail"; result= matchedTweets}
+    else
+        {message="success"; result= matchedTweets}
+
 let userSignOut (user: UserSignOutType) = 
     liveFeedRef <! DeleteLogin(user.user)
     {message="success"; value="User Successfully Logged off!"}
+
+
+let sendFeed (ws: WebSocket) (context : HttpContext) = 
+    let mutable currentUser = ""
+    let rec loop() =
+        socket { 
+            let! msg = ws.read()
+            match msg with
+            | (Text, data, true) ->
+                let reqMsg = UTF8.toString data
+                let parsed = JsonConvert.DeserializeObject<FeedRecord> reqMsg
+                currentUser <- parsed.username
+                liveFeedRef <! Init(parsed, ws)
+                return! loop()
+            | (Close, _, _) ->
+                printfn "Closed WEBSOCKET"
+                liveFeedRef <! CloseSocket(currentUser)
+                let emptyResponse = [||] |> Sockets.ByteSegment
+                do! ws.send Close emptyResponse true
+            | _ -> return! loop()
+        }
+    loop()
 
 
 // Route endpoints
